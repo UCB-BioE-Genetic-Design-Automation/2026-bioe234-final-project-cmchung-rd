@@ -1,0 +1,32 @@
+{
+  "id": "analyze_protocol",
+  "name": "analyze_protocol",
+  "mcp_name": "opentrons",
+  "description": "Analyze an OT-2 simulation log with six heuristic detectors (tip waste, volume overflow, empty aspirate, pipette range mismatch, batchable transfers, tip rack exhaustion) and return structured optimization recommendations.",
+  "inputs": [
+    {
+      "name": "simulation_log",
+      "type": "string",
+      "description": "Full text output from opentrons_simulate (the 'log' field returned by simulate_protocol).",
+      "required": true
+    }
+  ],
+  "outputs": [
+    {
+      "name": "result",
+      "type": "string",
+      "description": "JSON string with key 'recommendations' (list of {issue, description, severity, suggestion}) or 'error' on failure."
+    }
+  ],
+  "examples": [
+    {
+      "input": {
+        "simulation_log": "Picking up tip from A1 of tip rack on 1\\nAspirating 10 uL from A1 of plate on 2\\n..."
+      },
+      "output": "{\"recommendations\": [{\"issue\": \"tip_waste\", \"severity\": \"medium\", \"description\": \"...\", \"suggestion\": \"...\"}]}"
+    }
+  ],
+  "execution_details": {
+    "seq_params": []
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "prompts": [
+    {
+      "id": "serial_dilution_basic",
+      "description": "Run a standard 8-step 1:2 serial dilution on a 96-well plate.",
+      "user_message": "Set up a serial dilution: 8 steps, 1:2 dilution factor, 100 µL starting volume.",
+      "tool_sequence": ["run_full_pipeline"],
+      "example_parameters": {
+        "task_type": "serial_dilution",
+        "parameters_json": "{\"num_dilutions\": 8, \"dilution_factor\": 2, \"initial_volume\": 100}"
+      }
+    },
+    {
+      "id": "pcr_setup_basic",
+      "description": "Prepare a 96-well PCR plate with master mix and samples.",
+      "user_message": "Set up a PCR plate with 50 µL reactions: 25 µL master mix and 5 µL sample per well, 48 samples.",
+      "tool_sequence": ["run_full_pipeline"],
+      "example_parameters": {
+        "task_type": "pcr_setup",
+        "parameters_json": "{\"num_samples\": 48, \"master_mix_volume\": 25, \"sample_volume\": 5, \"total_volume\": 50}"
+      }
+    },
+    {
+      "id": "rt_normalization_basic",
+      "description": "Normalize RNA samples to a target concentration before reverse transcription.",
+      "user_message": "Normalize 24 RNA samples to 50 ng/µL in a final volume of 20 µL for RT.",
+      "tool_sequence": ["run_full_pipeline"],
+      "example_parameters": {
+        "task_type": "rt_normalization",
+        "parameters_json": "{\"num_samples\": 24, \"target_concentration\": 50, \"final_volume\": 20}"
+      }
+    },
+    {
+      "id": "visualize_only",
+      "description": "Parse an existing simulation log and produce all visualisation outputs without re-simulating.",
+      "user_message": "Here is the simulation log from my protocol — generate the PDF report, HTML dashboard, GIF animation, and statistics chart.",
+      "tool_sequence": ["visualize_deck_state"]
+    },
+    {
+      "id": "analyze_only",
+      "description": "Check a simulation log for optimization issues without producing visualisations.",
+      "user_message": "Analyze this simulation log and tell me what can be optimized.",
+      "tool_sequence": ["analyze_protocol"]
+    }
+  ]
+}
