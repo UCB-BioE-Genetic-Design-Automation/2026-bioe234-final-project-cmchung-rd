@@ -182,6 +182,8 @@ Normalize 24 RNA samples to 50 ng/µL in a final volume of 20 µL for reverse
 transcription. Source concentrations range from 100–500 ng/µL.
 ```
 
+**Expected output:** ~75 simulation steps, per-sample volume heatmap, likely a `pipette_range` recommendation if any water volumes fall below 20 µL.
+
 ---
 
 ### Reagent Plate Stamping
@@ -191,6 +193,8 @@ Stamp 50 µL of PBS from a 12-well reservoir in slot 3 into all 96 wells of a
 flat-bottom plate in slot 2. Use a P300 8-channel multi-channel pipette and
 change tips between each row.
 ```
+
+**Expected output:** ~30 simulation steps, uniform volume heatmap across all 96 wells, likely a `tip_waste` recommendation since tips could be reused between rows.
 
 ---
 
@@ -202,6 +206,8 @@ into triplicate wells on a 96-well PCR plate. Compounds go into rows A–H,
 columns 1–3 (A1:A3, B1:B3, C1:C3, D1:D3, E1:E3, F1:F3, G1:G3, H1:H3).
 Use a P20 single-channel pipette with a fresh tip for each compound.
 ```
+
+**Expected output:** ~25 simulation steps, heatmap showing 3 filled columns with compound groupings, `batchable_transfers` recommendation since each compound visits 3 identical wells.
 
 ---
 
@@ -220,6 +226,8 @@ Set up an ELISA plate with the following steps on an OT-2:
    the remaining wells using a P300 single-channel pipette with fresh tips.
 ```
 
+**Expected output:** ~130 simulation steps across 3 labware sources, multi-stage heatmap showing antibody coat + standards + samples, likely `batchable_transfers` for the standards.
+
 ---
 
 ### Pooling From a Full Plate
@@ -230,6 +238,8 @@ well A1 of a 12-well reservoir in slot 5. Then pool column 2 into A2, and
 so on through column 12 into A12. Use a P20 single-channel pipette with a
 fresh tip per well.
 ```
+
+**Expected output:** ~100 simulation steps (8 wells × 12 columns), source plate heatmap depleting uniformly, destination reservoir showing 12 pools building up.
 
 ---
 
@@ -255,6 +265,8 @@ Steps:
    per well.
 ```
 
+**Expected output:** ~200 simulation steps, GIF showing 3-plate workflow (source → dilution → assay), gradient concentration heatmap on dilution plate, `empty_aspirate` warning possible at the lowest dilution point.
+
 ---
 
 ### DNA Library Normalization and Pooling
@@ -271,6 +283,8 @@ Normalize and pool 48 DNA libraries for sequencing on an OT-2:
    destination plate into a single tube in position A1 of a tube rack in
    slot 5. Use a P20 single-channel pipette with fresh tips.
 ```
+
+**Expected output:** ~150 simulation steps, source plate depleting non-uniformly (higher-concentration libraries contribute less volume), normalized destination plate with uniform fill, `pipette_range` recommendation if any water or library volumes fall below 2 µL.
 
 ---
 
@@ -290,6 +304,8 @@ containing cells:
 4. Mix each well 3 times with 50 µL using the P300 8-channel pipette,
    changing tips between rows.
 ```
+
+**Expected output:** ~120 simulation steps across 4 distinct liquid-handling stages, heatmap showing 4 treatment zones across the plate, `tip_waste` recommendation for the CellTiter-Glo step (same-tip dispense could extend to mixing too).
 
 ---
 
