@@ -184,6 +184,115 @@ transcription. Source concentrations range from 100–500 ng/µL.
 
 ---
 
+### Reagent Plate Stamping
+
+```
+Stamp 50 µL of PBS from a 12-well reservoir in slot 3 into all 96 wells of a
+flat-bottom plate in slot 2. Use a P300 8-channel multi-channel pipette and
+change tips between each row.
+```
+
+---
+
+### Compound Spotting (Triplicates)
+
+```
+Spot 2 µL of 8 different compounds from tubes A1 through A8 in a 24-tube rack
+into triplicate wells on a 96-well PCR plate. Compounds go into rows A–H,
+columns 1–3 (A1:A3, B1:B3, C1:C3, D1:D3, E1:E3, F1:F3, G1:G3, H1:H3).
+Use a P20 single-channel pipette with a fresh tip for each compound.
+```
+
+---
+
+### ELISA Plate Setup
+
+```
+Set up an ELISA plate with the following steps on an OT-2:
+1. Dispense 100 µL of coating antibody (from a reservoir in slot 3) into all
+   96 wells of a flat-bottom plate in slot 2 using a P300 8-channel pipette,
+   changing tips between rows.
+2. Dispense 50 µL of each of 8 standard curve concentrations (from columns 1–8
+   of a source plate in slot 4) into duplicate wells (columns 1–2, 3–4, etc.)
+   of the destination plate using a P300 single-channel pipette with fresh tips
+   per standard.
+3. Dispense 50 µL of 16 unknown samples (from a source plate in slot 5) into
+   the remaining wells using a P300 single-channel pipette with fresh tips.
+```
+
+---
+
+### Pooling From a Full Plate
+
+```
+Pool 10 µL from every well in column 1 of a 96-well plate in slot 2 into
+well A1 of a 12-well reservoir in slot 5. Then pool column 2 into A2, and
+so on through column 12 into A12. Use a P20 single-channel pipette with a
+fresh tip per well.
+```
+
+---
+
+### Dose-Response Assay Setup
+
+```
+Set up a 10-point dose-response assay on an OT-2 for 8 compounds in duplicate.
+Plate layout: columns 1–10 are concentrations (10-fold serial dilution starting
+from 100 µM), columns 11–12 are positive and negative controls. Source plate
+in slot 3 has compounds at 100 µM in rows A–H. Dilution plate in slot 4 is
+empty. Destination assay plate in slot 2 is empty.
+
+Steps:
+1. Add 180 µL of DMSO from reservoir in slot 5 into columns 2–10 of the
+   dilution plate using a P300 single-channel pipette, one tip per column.
+2. Transfer 20 µL from column 1 of the source plate into column 1 of the
+   dilution plate (fresh tip per well).
+3. Perform a 1:10 serial dilution from column 1 to column 10 of the dilution
+   plate — transfer 20 µL, mix 5 times, then move to the next column. Change
+   tips between columns.
+4. Stamp 2 µL from each column of the dilution plate into the corresponding
+   column of the assay plate using a P20 single-channel pipette, fresh tip
+   per well.
+```
+
+---
+
+### DNA Library Normalization and Pooling
+
+```
+Normalize and pool 48 DNA libraries for sequencing on an OT-2:
+1. Libraries are in columns 1–6 of a 96-well plate in slot 3 at varying
+   concentrations (assume all are between 5–50 ng/µL).
+2. Normalize each library to 4 ng/µL in 10 µL total volume in a fresh plate
+   in slot 2 by adding water from a reservoir in slot 4 first, then library.
+   Use a P20 single-channel pipette with fresh tips for water and for each
+   library.
+3. After normalization, pool 5 µL from each well of columns 1–6 of the
+   destination plate into a single tube in position A1 of a tube rack in
+   slot 5. Use a P20 single-channel pipette with fresh tips.
+```
+
+---
+
+### Cell Viability Assay (Sequential Reagent Addition)
+
+```
+Automate a cell viability assay on a 96-well flat-bottom plate in slot 2
+containing cells:
+1. Remove 50 µL of media from every well using a P300 8-channel pipette
+   (discard into a waste reservoir in slot 9). Change tips between rows.
+2. Add 100 µL of treatment compounds: columns 1–3 get compound A (from slot 3),
+   columns 4–6 get compound B (from slot 4), columns 7–9 get compound C
+   (from slot 5), columns 10–12 are vehicle control (DMSO from slot 6).
+   Use a P300 8-channel pipette, change tips between compound groups.
+3. Add 10 µL of CellTiter-Glo reagent from a reservoir in slot 7 to all 96
+   wells using a P20 8-channel pipette, same tip for all dispenses.
+4. Mix each well 3 times with 50 µL using the P300 8-channel pipette,
+   changing tips between rows.
+```
+
+---
+
 ## Running tests
 
 ```powershell
@@ -226,6 +335,21 @@ All outputs are written to `~/Downloads/OT2_outputs/<run_id>/` (auto-created, ex
 | `tip_rack_exhaustion` | Protocol would use more tips than are loaded |
 
 Each recommendation includes `issue`, `severity` (low/medium/high), `description`, and `suggestion`.
+
+---
+
+## Limitations and future work
+
+| Area | Current limitation | What would fix it |
+|------|--------------------|-------------------|
+| **Protocol types** | Three hard-coded templates + free-form Gemini generation for custom protocols. Free-form can hallucinate invalid labware names or API calls. | Expand labware vocabulary; add a validation layer that checks generated scripts against the Opentrons labware library before simulating. |
+| **Simulation only** | `opentrons_simulate` is a dry-run — it does not connect to a real OT-2 or check physical liquid levels. | Integrate with the Opentrons HTTP API for live robot execution and liquid-level sensing. |
+| **Robot model** | OT-2 only (API level 2.15). The newer Opentrons Flex (OT-3) uses a different API and deck layout. | Add a robot-model selector and separate code-generation paths for Flex. |
+| **Single pipette** | The template generator loads one pipette per protocol. Dual-pipette workflows (e.g. P20 + P300 simultaneously) are not supported in templates, only in free-form custom mode. | Extend the template parameter schema to support a second `pipette_right` instrument. |
+| **Heuristic analysis** | The 6 detectors are rule-based and do not learn from protocol history or understand protocol intent. | Train a small ML model on real protocol logs to predict non-obvious waste patterns. |
+| **Labware vocabulary** | The log parser and volume heuristics recognise ~15 common labware types. Unusual labware (custom plates, specialty reservoirs) may appear as unrecognised "Note" steps. | Maintain a full labware JSON catalogue and auto-update from the Opentrons labware repository. |
+| **No multi-step / loop protocols** | Complex protocols with conditional branching, thermocycler loops, or heater-shaker steps are partially supported in free-form mode but not in templates. | Add template types for thermocycler PCR and heater-shaker mixing. |
+| **LLM cost and latency** | Every custom protocol generation makes a Gemini API call. With a free-tier key this adds ~2–5 s and may hit rate limits. | Cache generated scripts by description hash; add a local LLM fallback (e.g. Ollama). |
 
 ---
 

@@ -91,7 +91,7 @@ def _load_pipeline():
     except ImportError:
         pass
 
-    from modules.opentrons._lib.generator import generate_ot2_script
+    from modules.opentrons._lib.generator import generate_ot2_script, generate_freeform_script
     from modules.opentrons._lib.simulation_engine import run_opentrons_simulation
     from modules.opentrons._lib.analyzer import analyze_optimization
     from modules.opentrons._lib.visualizer.log_parser import parse_log
@@ -108,6 +108,7 @@ def _load_pipeline():
 
     return dict(
         generate_ot2_script=generate_ot2_script,
+        generate_freeform_script=generate_freeform_script,
         run_opentrons_simulation=run_opentrons_simulation,
         analyze_optimization=analyze_optimization,
         parse_log=parse_log,
@@ -137,20 +138,41 @@ def _run_pipeline(params: dict) -> dict:
     params["metadata"]["author"] = st.session_state.get("user_name", "Researcher")
 
     results = {"run_id": run_id, "out_dir": str(out_dir), "errors": {}}
+    task_type = params.get("task_type", "")
+    freeform_meta = {"protocolName": session, "author": params["metadata"]["author"]}
+
+    def _simulate(script):
+        return pipe["run_opentrons_simulation"](
+            protocol_code=script,
+            sim_path=pipe["sim_path"],
+            output_filename=str(out_dir / "simulation_log.txt"),
+        )
 
     # 1 — Generate
-    script = pipe["generate_ot2_script"](params)
-    results["script"] = script
+    if task_type == "custom":
+        description = params.get("description", "")
+        script = pipe["generate_freeform_script"](description, freeform_meta)
+        results["script"] = script
+        sim = _simulate(script)
+        if sim["status"] == "error":
+            # Self-correction pass — feed error back to Gemini
+            script = pipe["generate_freeform_script"](
+                description, freeform_meta,
+                previous_script=script,
+                error_message=sim["logs"][:800],
+            )
+            results["script"] = script
+            sim = _simulate(script)
+    else:
+        script = pipe["generate_ot2_script"](params)
+        results["script"] = script
+        sim = _simulate(script)
 
-    # 2 — Simulate
-    sim = pipe["run_opentrons_simulation"](
-        protocol_code=script,
-        sim_path=pipe["sim_path"],
-        output_filename=str(out_dir / "simulation_log.txt"),
-    )
+    # 2 — Simulate result check
     results["sim"] = sim
     if sim["status"] == "error":
-        results["error"] = f"Simulation failed:\n{sim['logs'][:600]}"
+        label = "after self-correction" if task_type == "custom" else ""
+        results["error"] = f"Simulation failed{' ' + label if label else ''}:\n{sim['logs'][:600]}"
         return results
 
     log_text = sim["logs"]
@@ -212,17 +234,25 @@ def _get_gemini_client():
 
 _TOOL_DECLARATION = {
     "name": "run_ot2_pipeline",
-    "description": "Generate, simulate, analyze, and visualize an OT-2 protocol end-to-end.",
+    "description": "Generate, simulate, analyze, and visualize an OT-2 protocol end-to-end. Supports template-based and fully custom protocols.",
     "parameters": {
         "type": "object",
         "properties": {
             "task_type": {
                 "type": "string",
-                "description": "One of: serial_dilution, pcr_setup, rt_normalization",
+                "description": (
+                    "One of: serial_dilution, pcr_setup, rt_normalization, custom. "
+                    "Use 'custom' for any protocol not covered by the three templates."
+                ),
             },
             "parameters_json": {
                 "type": "string",
-                "description": "JSON string of task-specific parameters (volumes, counts, etc.)",
+                "description": (
+                    "JSON string of parameters. "
+                    "For serial_dilution/pcr_setup/rt_normalization: include task-specific fields (volumes, counts, etc.). "
+                    "For custom: include a 'description' field with the full protocol description "
+                    "(labware, pipettes, volumes, step-by-step logic)."
+                ),
             },
         },
         "required": ["task_type", "parameters_json"],
@@ -249,6 +279,9 @@ Supported task types and their key parameters:
 - serial_dilution: num_dilutions (2-11), dilution_factor (2/4/5/10), initial_volume (µL)
 - pcr_setup: num_samples (1-96), master_mix_volume (µL), sample_volume (µL)
 - rt_normalization: num_samples (1-96), target_concentration (ng/µL), final_volume (µL), rt_mm_vol (µL)
+- custom: for ANY other protocol. Set parameters_json to {{"description": "<full step-by-step protocol description including labware, pipettes, volumes, and logic>"}}
+
+Use 'custom' whenever the user's request doesn't cleanly map to the three templates above (e.g. reagent addition, plate stamping, pooling, buffer exchange, compound spotting, etc.). Be generous — if in doubt, use custom.
 
 After the pipeline runs, summarize results clearly: mention step count, any optimization recommendations (by severity), and that output files are ready to download.
 If something fails, explain what went wrong and suggest a fix.

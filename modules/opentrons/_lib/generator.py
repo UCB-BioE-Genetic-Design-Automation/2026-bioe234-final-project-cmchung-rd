@@ -84,8 +84,8 @@ def _apply_defaults(parameters: dict) -> dict:
             if not concs:
                 n = p["num_wells"]
                 p["sample_concentrations"] = [100.0] * n
-        else:
-            raise ValueError(f"Unknown task_type '{task_type}'. Must be one of: serial_dilution, pcr_setup, rt_normalization.")
+        # Unknown / custom task_type — caller should use generate_freeform_script instead
+        pass
 
     return p
 
@@ -210,7 +210,143 @@ def run(protocol: protocol_api.ProtocolContext):
     else:
         raise ValueError(
             f"Unknown task_type '{task_type}'. "
-            "Must be one of: serial_dilution, pcr_setup, rt_normalization"
+            "Use generate_freeform_script() for custom protocols."
         )
 
     return script_content
+
+
+_FREEFORM_SYSTEM = """\
+You are an expert Opentrons OT-2 Python programmer. Write complete, valid Opentrons API v2 Python scripts.
+
+STRICT RULES — violating any causes a simulation error:
+1. Return ONLY Python code. No markdown, no code fences (```), no explanations.
+2. First line must be: # PROTOCOL: <name>
+3. Include a module-level metadata dict with apiLevel '2.15'.
+4. Define exactly: def run(protocol: protocol_api.ProtocolContext):
+5. Use ONLY these labware names (exact strings) and respect their well layouts:
+     opentrons_96_tiprack_20ul          — 96 wells, 8 rows (A-H) × 12 cols (1-12)
+     opentrons_96_tiprack_300ul         — 96 wells, 8 rows (A-H) × 12 cols (1-12)
+     opentrons_96_tiprack_1000ul        — 96 wells, 8 rows (A-H) × 12 cols (1-12)
+     nest_96_wellplate_200ul_flat       — 96 wells, 8 rows (A-H) × 12 cols (1-12)
+     nest_96_wellplate_100ul_pcr_full_skirt — 96 wells, 8 rows (A-H) × 12 cols (1-12)
+     nest_12_reservoir_15ml             — 12 wells, 1 row, cols A1–A12 only
+     nest_1_reservoir_195ml             — 1 well, A1 only
+     opentrons_24_tuberack_eppendorf_1.5ml_safelock_snapcap — 24 wells, 4 rows (A-D) × 6 cols (1-6), positions A1–D6 ONLY
+     opentrons_24_tuberack_nest_2ml_snapcap                 — 24 wells, 4 rows (A-D) × 6 cols (1-6), positions A1–D6 ONLY
+6. Use ONLY these pipette names (exact strings):
+     p20_single_gen2   (2–20 µL)
+     p300_single_gen2  (20–300 µL)
+     p1000_single_gen2 (100–1000 µL)
+     p20_multi_gen2    (2–20 µL, 8-channel)
+     p300_multi_gen2   (20–300 µL, 8-channel)
+7. Deck slots are strings '1' through '11'.
+8. Always pass tip_racks=[...] when loading a pipette.
+9. Choose pipette by volume: ≤20 µL → p20, 21–300 µL → p300, >300 µL → p1000.
+10. Never exceed 300 µL per transfer with p300; split into multiple aspirate/dispense if needed.
+11. CRITICAL — tube rack well access: a 24-tube rack has only 4 rows × 6 columns.
+    Valid positions: A1,A2,A3,A4,A5,A6, B1–B6, C1–C6, D1–D6. A7 through A12 do NOT exist.
+    If you need 12 individual collection tubes (one per plate column), use nest_12_reservoir_15ml (A1–A12) instead.
+12. Use labware.columns()[n] (0-indexed) or labware.rows()[n] to select entire columns/rows.
+    Use labware.wells_by_name()['A1'] or labware['A1'] for individual wells.
+
+EXAMPLE STRUCTURE:
+# PROTOCOL: Example Protocol
+from opentrons import protocol_api
+
+metadata = {
+    'protocolName': 'Example Protocol',
+    'author': 'BioE234 Team',
+    'apiLevel': '2.15'
+}
+
+def run(protocol: protocol_api.ProtocolContext):
+    tiprack = protocol.load_labware('opentrons_96_tiprack_300ul', '1')
+    plate   = protocol.load_labware('nest_96_wellplate_200ul_flat', '2')
+    pipette = protocol.load_instrument('p300_single_gen2', 'left', tip_racks=[tiprack])
+
+    for well in plate.wells()[:8]:
+        pipette.pick_up_tip()
+        pipette.aspirate(50, plate['A1'])
+        pipette.dispense(50, well)
+        pipette.drop_tip()
+"""
+
+
+def _extract_python(text: str) -> str:
+    """
+    Pull Python source out of a Gemini response that may contain prose, markdown
+    fences, or both.  Priority order:
+      1. Content inside ```python ... ``` fences
+      2. Content inside any ``` ... ``` fences
+      3. Everything from the first 'from opentrons' / '# PROTOCOL:' line onward
+      4. Raw text as a last resort
+    """
+    import re
+    text = text.strip()
+
+    # 1 & 2 — fenced code block (with or without language tag)
+    m = re.search(r"```(?:python)?\s*\n(.*?)```", text, re.DOTALL)
+    if m:
+        return m.group(1).strip()
+
+    # 3 — find where the actual Python starts (first recognisable line)
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith("# PROTOCOL:") or stripped.startswith("from opentrons"):
+            return "\n".join(lines[i:]).strip()
+
+    # 4 — give up and return as-is; simulation will surface the real error
+    return text
+
+
+def generate_freeform_script(
+    description: str,
+    metadata: dict = None,
+    previous_script: str = None,
+    error_message: str = None,
+) -> str:
+    """
+    Use Gemini to write an arbitrary OT-2 protocol from a natural-language description.
+    Supply previous_script + error_message on retry for self-correction.
+    """
+    import os
+    try:
+        from google import genai
+        from google.genai import types as gtypes
+    except ImportError:
+        raise ImportError("google-genai not installed. Run: pip install google-genai")
+
+    api_key = os.environ.get("GEMINI_API_KEY", "")
+    client = genai.Client(api_key=api_key)
+
+    meta = metadata or {}
+    protocol_name = meta.get("protocolName", "Custom Protocol")
+    author = meta.get("author", "BioE234 Team")
+
+    if previous_script and error_message:
+        user_msg = (
+            f"The following OT-2 script produced this simulation error:\n\n"
+            f"ERROR:\n{error_message}\n\n"
+            f"SCRIPT THAT FAILED:\n{previous_script}\n\n"
+            f"Fix the error. Original protocol description:\n{description}\n\n"
+            f"Return only the corrected Python script."
+        )
+    else:
+        user_msg = (
+            f"Write an OT-2 protocol script for the following:\n\n"
+            f"{description}\n\n"
+            f"Use protocolName: '{protocol_name}' and author: '{author}'."
+        )
+
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=[gtypes.Content(role="user", parts=[gtypes.Part(text=user_msg)])],
+        config=gtypes.GenerateContentConfig(
+            system_instruction=_FREEFORM_SYSTEM,
+            temperature=0.1,
+        ),
+    )
+
+    return _extract_python(response.text)
