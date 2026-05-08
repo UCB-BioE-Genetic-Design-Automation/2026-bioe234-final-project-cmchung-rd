@@ -211,3 +211,8 @@ output/
 venv_ot/
 *.mp4
 *.gif
+
+# Allow example outputs committed to the repo
+!examples/**/*.gif
+!examples/**/*.png
+!examples/**/*.pdf

@@ -221,6 +221,7 @@ You are an expert Opentrons OT-2 Python programmer. Write complete, valid Opentr
 
 STRICT RULES — violating any causes a simulation error:
 1. Return ONLY Python code. No markdown, no code fences (```), no explanations.
+   NEVER use the µ character anywhere — write 'uL' not 'µL'. Non-ASCII characters cause a UTF-8 decode error.
 2. First line must be: # PROTOCOL: <name>
 3. Include a module-level metadata dict with apiLevel '2.15'.
 4. Define exactly: def run(protocol: protocol_api.ProtocolContext):
@@ -301,6 +302,21 @@ def _extract_python(text: str) -> str:
     return text
 
 
+def _sanitize_script(script: str) -> str:
+    """Replace non-ASCII characters that break opentrons_simulate's UTF-8 reader."""
+    return (
+        script
+        .replace('µ', 'u')   # µ (micro sign, Latin-1 0xb5)
+        .replace('μ', 'u')   # μ (Greek small mu)
+        .replace('’', "'")   # right single quote
+        .replace('‘', "'")   # left single quote
+        .replace('“', '"')   # left double quote
+        .replace('”', '"')   # right double quote
+        .replace('–', '-')   # en dash
+        .replace('—', '-')   # em dash
+    )
+
+
 def generate_freeform_script(
     description: str,
     metadata: dict = None,
@@ -349,4 +365,4 @@ def generate_freeform_script(
         ),
     )
 
-    return _extract_python(response.text)
+    return _sanitize_script(_extract_python(response.text))

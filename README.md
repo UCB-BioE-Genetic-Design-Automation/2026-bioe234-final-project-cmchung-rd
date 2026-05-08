@@ -144,168 +144,108 @@ streamlit run app.py --server.headless true
 
 Then open **http://localhost:8501** in your browser. Type a protocol description in the chat box and hit Enter.
 
+> **Tip:** Each protocol run should be in its own session. If you run a second protocol and get unexpected or repeated output, click **🔄 New session** in the sidebar to clear the conversation history before submitting a new prompt.
+
 ---
 
 ## Example prompts
 
-### Serial Dilution
-
-```
-Generate and simulate an Opentrons OT-2 protocol for a 1:10 serial dilution
-across one row of a 96-well plate. Start with 200 µL of sample in the first
-well and dilute 1:10 across 8 wells using 20 µL transfers into 180 µL of
-diluent. Use a P300 single-channel pipette and change tips between transfers.
-```
-
-**Expected output:** ~50 simulation steps, 8 deck snapshots, PDF + HTML dashboard + GIF + stats PNG downloaded to `~/Downloads/OT2_outputs/`.
+These prompts use the free-form generation path (no hard-coded templates). Each uses a single pipette and a focused task to produce reliable simulation output.
 
 ---
 
-### PCR Setup
+### 1. Plate-to-Plate Transfer
 
 ```
-Create a protocol to set up a 24-sample PCR reaction on an OT-2. Each well
-should receive 25 µL of master mix from a 2 mL tube followed by 5 µL of
-sample from a 96-well sample plate. Use a P300 multi-channel pipette for
-master mix and a P20 single-channel pipette for samples. Change tips between
-samples.
+Using a P300 single-channel pipette, transfer 100 uL from each individual well
+of a 96-well flat-bottom plate in slot 3 into the corresponding well of a
+second 96-well flat-bottom plate in slot 2. Load a tip rack in slot 1. Pick up
+a new tip before each transfer and drop it after. No other labware is needed.
 ```
-
-**Expected output:** ~100 simulation steps, PDF report with per-plate volume heatmaps, optimization recommendations if any tip-waste or pipette-range issues are detected.
 
 ---
 
-### RNA Normalization
+### 2. Reagent Addition to Selected Wells
 
 ```
-Normalize 24 RNA samples to 50 ng/µL in a final volume of 20 µL for reverse
-transcription. Source concentrations range from 100–500 ng/µL.
+Add 50 uL of buffer from a reservoir in slot 4 into wells A1 through H6 of a
+96-well flat-bottom plate in slot 2. Use a P300 single-channel pipette with
+one tip for all dispenses.
 ```
-
-**Expected output:** ~75 simulation steps, per-sample volume heatmap, likely a `pipette_range` recommendation if any water volumes fall below 20 µL.
 
 ---
 
-### Reagent Plate Stamping
+### 3. Serial Dilution
 
 ```
-Stamp 50 µL of PBS from a 12-well reservoir in slot 3 into all 96 wells of a
-flat-bottom plate in slot 2. Use a P300 8-channel multi-channel pipette and
-change tips between each row.
+Perform a 1:2 serial dilution across 8 wells in row A of a 96-well plate in
+slot 2. Pre-fill wells A2 through A8 with 100 uL of diluent from a reservoir
+in slot 3. Transfer 100 uL from A1 into A2, mix 5 times, then transfer 100 uL
+from A2 into A3, and so on through A8. Use a P300 single-channel pipette and
+change tips between each transfer step.
 ```
-
-**Expected output:** ~30 simulation steps, uniform volume heatmap across all 96 wells, likely a `tip_waste` recommendation since tips could be reused between rows.
 
 ---
 
-### Compound Spotting (Triplicates)
+### 4. Column Pooling
 
 ```
-Spot 2 µL of 8 different compounds from tubes A1 through A8 in a 24-tube rack
-into triplicate wells on a 96-well PCR plate. Compounds go into rows A–H,
-columns 1–3 (A1:A3, B1:B3, C1:C3, D1:D3, E1:E3, F1:F3, G1:G3, H1:H3).
-Use a P20 single-channel pipette with a fresh tip for each compound.
+Pool 25 uL from every well in column 1 of a 96-well plate in slot 2 into well
+A1 of a 12-well reservoir in slot 5. Repeat for columns 2 through 6, pooling
+each into wells A2 through A6 of the reservoir. Use a P300 single-channel
+pipette with a fresh tip per well.
 ```
-
-**Expected output:** ~25 simulation steps, heatmap showing 3 filled columns with compound groupings, `batchable_transfers` recommendation since each compound visits 3 identical wells.
 
 ---
 
-### ELISA Plate Setup
+### 5. Sample Normalization
 
 ```
-Set up an ELISA plate with the following steps on an OT-2:
-1. Dispense 100 µL of coating antibody (from a reservoir in slot 3) into all
-   96 wells of a flat-bottom plate in slot 2 using a P300 8-channel pipette,
-   changing tips between rows.
-2. Dispense 50 µL of each of 8 standard curve concentrations (from columns 1–8
-   of a source plate in slot 4) into duplicate wells (columns 1–2, 3–4, etc.)
-   of the destination plate using a P300 single-channel pipette with fresh tips
-   per standard.
-3. Dispense 50 µL of 16 unknown samples (from a source plate in slot 5) into
-   the remaining wells using a P300 single-channel pipette with fresh tips.
+Normalize 8 samples from column 1 of a source plate in slot 3 to a final
+volume of 100 uL in a destination plate in slot 2. Each sample has a known
+concentration: A1=200 ng/uL, B1=150, C1=100, D1=80, E1=60, F1=50, G1=40,
+H1=30. Target concentration is 25 ng/uL. Add water from a reservoir in slot 4
+first, then add sample. Use a P300 single-channel pipette with fresh tips for
+each well.
 ```
-
-**Expected output:** ~130 simulation steps across 3 labware sources, multi-stage heatmap showing antibody coat + standards + samples, likely `batchable_transfers` for the standards.
 
 ---
 
-### Pooling From a Full Plate
+### 6. Compound Distribution
 
 ```
-Pool 10 µL from every well in column 1 of a 96-well plate in slot 2 into
-well A1 of a 12-well reservoir in slot 5. Then pool column 2 into A2, and
-so on through column 12 into A12. Use a P20 single-channel pipette with a
-fresh tip per well.
+Distribute 75 uL of compound A from well A1 of a source plate in slot 3 into
+wells A1, B1, C1, D1, E1, F1, G1, and H1 of a destination plate in slot 2.
+Then distribute 75 uL of compound B from well A2 of the source plate into
+wells A2 through H2 of the destination plate. Repeat for compounds C through
+H (columns 3-8 of source plate to columns 3-8 of destination plate). Use a
+P300 single-channel pipette with a fresh tip per compound.
 ```
-
-**Expected output:** ~100 simulation steps (8 wells × 12 columns), source plate heatmap depleting uniformly, destination reservoir showing 12 pools building up.
 
 ---
 
-### Dose-Response Assay Setup
+### 7. Tip-Reuse Optimization Test
 
 ```
-Set up a 10-point dose-response assay on an OT-2 for 8 compounds in duplicate.
-Plate layout: columns 1–10 are concentrations (10-fold serial dilution starting
-from 100 µM), columns 11–12 are positive and negative controls. Source plate
-in slot 3 has compounds at 100 µM in rows A–H. Dilution plate in slot 4 is
-empty. Destination assay plate in slot 2 is empty.
-
-Steps:
-1. Add 180 µL of DMSO from reservoir in slot 5 into columns 2–10 of the
-   dilution plate using a P300 single-channel pipette, one tip per column.
-2. Transfer 20 µL from column 1 of the source plate into column 1 of the
-   dilution plate (fresh tip per well).
-3. Perform a 1:10 serial dilution from column 1 to column 10 of the dilution
-   plate — transfer 20 µL, mix 5 times, then move to the next column. Change
-   tips between columns.
-4. Stamp 2 µL from each column of the dilution plate into the corresponding
-   column of the assay plate using a P20 single-channel pipette, fresh tip
-   per well.
+Transfer 50 uL from well A1 of a source plate in slot 3 into each of wells
+A1, A2, A3, A4, A5, A6, A7, and A8 of a destination plate in slot 2. Use a
+P300 single-channel pipette and pick up a new tip before every single transfer.
 ```
-
-**Expected output:** ~200 simulation steps, GIF showing 3-plate workflow (source → dilution → assay), gradient concentration heatmap on dilution plate, `empty_aspirate` warning possible at the lowest dilution point.
 
 ---
 
-### DNA Library Normalization and Pooling
+## Example outputs
 
-```
-Normalize and pool 48 DNA libraries for sequencing on an OT-2:
-1. Libraries are in columns 1–6 of a 96-well plate in slot 3 at varying
-   concentrations (assume all are between 5–50 ng/µL).
-2. Normalize each library to 4 ng/µL in 10 µL total volume in a fresh plate
-   in slot 2 by adding water from a reservoir in slot 4 first, then library.
-   Use a P20 single-channel pipette with fresh tips for water and for each
-   library.
-3. After normalization, pool 5 µL from each well of columns 1–6 of the
-   destination plate into a single tube in position A1 of a tube rack in
-   slot 5. Use a P20 single-channel pipette with fresh tips.
-```
+The following outputs were generated from the **Reagent Addition to Selected Wells** prompt above.
 
-**Expected output:** ~150 simulation steps, source plate depleting non-uniformly (higher-concentration libraries contribute less volume), normalized destination plate with uniform fill, `pipette_range` recommendation if any water or library volumes fall below 2 µL.
+### Statistics dashboard
+![Stats dashboard](examples/reagent_addition/stats_dashboard.png)
 
----
+### Deck animation
+![Deck animation](examples/reagent_addition/deck_animation.gif)
 
-### Cell Viability Assay (Sequential Reagent Addition)
-
-```
-Automate a cell viability assay on a 96-well flat-bottom plate in slot 2
-containing cells:
-1. Remove 50 µL of media from every well using a P300 8-channel pipette
-   (discard into a waste reservoir in slot 9). Change tips between rows.
-2. Add 100 µL of treatment compounds: columns 1–3 get compound A (from slot 3),
-   columns 4–6 get compound B (from slot 4), columns 7–9 get compound C
-   (from slot 5), columns 10–12 are vehicle control (DMSO from slot 6).
-   Use a P300 8-channel pipette, change tips between compound groups.
-3. Add 10 µL of CellTiter-Glo reagent from a reservoir in slot 7 to all 96
-   wells using a P20 8-channel pipette, same tip for all dispenses.
-4. Mix each well 3 times with 50 µL using the P300 8-channel pipette,
-   changing tips between rows.
-```
-
-**Expected output:** ~120 simulation steps across 4 distinct liquid-handling stages, heatmap showing 4 treatment zones across the plate, `tip_waste` recommendation for the CellTiter-Glo step (same-tip dispense could extend to mixing too).
+### PDF report
+[Download report.pdf](examples/reagent_addition/report.pdf)
 
 ---
 
